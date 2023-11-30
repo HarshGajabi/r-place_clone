@@ -41,7 +41,7 @@ $(function () {
             var context = document.getElementById('canvas').getContext('2d');
             // assume that o.color stores a 4-bit color index, o.x and o.y give position
             context.fillStyle = colors[o.color];
-            context.fillRect(o.x, o.y, 10, 10);
+            context.fillRect(o.x, o.y, 1, 1);
         } else if (o.type == "timeout") {
             alert("timeout, try again in a few minutes");
         }

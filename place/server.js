@@ -6,7 +6,7 @@ var board = new Array(dim);
 for (var x = 0; x < dim; x++) {
 	board[x] = new Array(dim);
 	for (var y = 0; y < dim; y++) {
-		board[x][y] = { 'color': 15 };
+		board[x][y] = { 'color': 0 };
 	}
 }
 
