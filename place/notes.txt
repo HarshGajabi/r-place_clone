@@ -1,0 +1,47 @@
+# On lab systems, this can run inside the VMs under docker
+
+docker build -t USERNAME/place .
+docker run -p 8080:8080 -p 8081:8081 -d USERNAME/place
+docker container ls
+docker logs CONTAINERID
+docker container stop CONTAINERID
+docker image ls
+docker image rm IMAGEID -f
+
+# Right now, you can only see it from the host via 
+
+# http://127.0.0.1:8080/
+
+# See references at bottom
+
+# ------------------------------------------------------------
+# If you want to run on raw metal, for example, on cslinux...
+
+# Download to cslinux.utm.utoronto.ca.
+# NOTE: this won't run on dh2026pcXX, I think there is a version problem
+
+npm install
+nodejs server.js # or npm start
+
+# visit http://cslinux.utm.utoronto.ca:PORT
+# NOTE: Change the PORT from 8080/8081 in place.js and index.html
+# so that you don't clobber eachothers ports.
+# My guess is that you will want to dockerize
+# the node application, then put it up on aws, see reference at bottom
+
+# If package.json is not here, then create it by...
+
+npm init
+# npm init creates a package.json
+# http://browsenpm.org/package.json
+# https://docs.npmjs.com/files/package.json
+
+# We are adding the ws libraries, they will be in our local node_modules
+npm install --save express
+npm install --save ws
+npm install --save JSON
+
+# References:
+# https://www.npmjs.com/package/ws
+# https://nodejs.org/en/docs/guides/nodejs-docker-webapp/
+
