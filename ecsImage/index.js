@@ -36,10 +36,12 @@ wsServer.on('connection', (webSocketClient) => {
 });
 
 const broadcast = (message) => {
-  console.log("Broadcasting message to all ws clients");
-  wsServer.clients.forEach(
-    client => client.send(`{ "message" : ${message}}`)
-  )
+  if (message){
+    console.log("Broadcasting message to all ws clients");
+    wsServer.clients.forEach(
+      client => client.send(`{ "message" : ${message}}`)
+    )
+  }
 }
 
 // Create SQS Queue
@@ -54,7 +56,43 @@ const createQueue = async () => {
   }
 };
 
+const setPermissions = async () => {
+  const getAttrsCommand = new GetQueueAttributesCommand({
+    QueueUrl: queueUrl,
+    AttributeNames: ['QueueArn']
+  });
 
+  let queueArn = null;
+  try {
+    const attrsResponse = await sqsClient.send(getAttrsCommand);
+    queueArn = attrsResponse.Attributes.QueueArn;
+  } catch (error) {
+    console.error("Error setting permissions for SQS Queue:", error);
+    return
+  }
+
+  // Set Queue Policy to allow SNS to send messages
+  const policy = {
+    Version: "2012-10-17",
+    Statement: [{
+      Effect: "Allow",
+      Principal: "*",
+      Action: "sqs:SendMessage",
+      Resource: queueArn,
+      Condition: {
+        ArnEquals: { "aws:SourceArn": snsTopicArn }
+      }
+    }]
+  };
+
+  const setAttrsCommand = new SetQueueAttributesCommand({
+    QueueUrl: queueUrl,
+    Attributes: {
+      Policy: JSON.stringify(policy)
+    }
+  });
+  await sqsClient.send(setAttrsCommand);
+};
 
 // Subscribe Queue to SNS Topic
 const subscribeQueueToSNS = async (queueUrl) => {
@@ -80,6 +118,17 @@ const subscribeQueueToSNS = async (queueUrl) => {
   }
 };
 
+const parseMessage = (snsMessageBody) => {
+  try {
+    // Parse the message body in case it's JSON (for example, from SNS)
+    const parsedBody = JSON.parse(snsMessageBody);
+    return parsedBody.Message;
+  } catch (err) {
+    // If it's not JSON, use the original body
+    return snsMessageBody
+  }
+}
+
 // Poll SQS Queue and forward messages to WebSocket clients
 const pollQueueAndForwardMessages = async (queueUrl) => {
   const receiveCommand = new ReceiveMessageCommand({
@@ -93,14 +142,16 @@ const pollQueueAndForwardMessages = async (queueUrl) => {
       const receivedMessages = await sqsClient.send(receiveCommand);
       if (receivedMessages.Messages) {
         receivedMessages.Messages.forEach(async (message) => {
-          console.log("Got the message from SQS: " + message.Body);
-          broadcast(message.Body);
+          const parsedMessage = parseMessage(message.Body);
+          
+          console.log("Got the message from SQS: " + parsedMessage);
+          broadcast(parsedMessage);
 
           const deleteCommand = new DeleteMessageCommand({
             QueueUrl: queueUrl,
             ReceiptHandle: message.ReceiptHandle
           });
-          await sqsClient.send(deleteCommand); // Delete message after forwarding
+          sqsClient.send(deleteCommand); // Delete message after forwarding
         });
       }
     } catch (error) {
@@ -113,8 +164,12 @@ const pollQueueAndForwardMessages = async (queueUrl) => {
 const init = async () => {
   queueUrl = await createQueue();
   console.log("Created SQS successfully: " + queueUrl);
+  
+  await setPermissions();
+  
   subscriptionArn = await subscribeQueueToSNS(queueUrl);
   console.log("Subscribed successfully: " + subscriptionArn);
+
   pollQueueAndForwardMessages(queueUrl);
 };
 
