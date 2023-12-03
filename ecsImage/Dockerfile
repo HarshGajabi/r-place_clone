@@ -16,5 +16,9 @@ COPY . .
 # Your application's default port, change if different
 EXPOSE 3000
 
+# Health check command
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
 # Define the command to run your app (what you would normally run to start your app)
 CMD [ "node", "index.js" ]

@@ -20,6 +20,10 @@ app.use(bodyParser.json());
 const server = http.createServer(app);
 const port = 3000;
 
+app.get('/health', (req, res) => {
+  res.status(200).send({ status: 'UP', message: 'Server is running' });
+});
+
 // Global variables to store resource identifiers
 let queueUrl = null;
 let subscriptionArn = null;
