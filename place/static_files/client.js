@@ -1,5 +1,5 @@
 const BOARD_SIZE = 1000;
-const WEBSOCKET_URL = `ws://${window.location.hostname}:8081`;
+const WEBSOCKET_URL = `ws://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.com:3000`;
 const BOARD_DATA_URL = `/board`;
 var socket;
 const colors = [
@@ -117,14 +117,23 @@ $(function () {
     socket = new WebSocket(WEBSOCKET_URL);
     socket.onopen = function (event) {
         $('#sendButton').removeAttr('disabled');
-        console.log("connected");
+        console.log("connected to server");
+
+        // Set up a ping to the server every 10 seconds
+        setInterval(function() {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: "ping" }));
+            }
+        }, 10000); // 10 seconds interval
     };
     socket.onclose = function (event) {
         alert("closed code:" + event.code + " reason:" + event.reason + " wasClean:" + event.wasClean);
     };
     socket.onmessage = function (event) {
-        var o = JSON.parse(event.data);
-        if (o.type == "set") {
+        console.log(event.data);
+        // TODO: check if the message field exists 
+        var o = JSON.parse(event.data)?.message;
+        if (o?.type == "set") {
             var context = document.getElementById('canvas').getContext('2d');
             // assume that o.color stores a 4-bit color index, o.x and o.y give position
             console.log("Setting pixel at (" + o.x + ", " + o.y + ") to color " + o.color);
@@ -148,3 +157,5 @@ $(function () {
         event.preventDefault();
     });
 });
+
+testPixel = (x,y) => document.getElementById("canvas").getContext('2d').getImageData(x,y,1,1).data
