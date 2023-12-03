@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+	<meta http-equiv="Pragma" content="no-cache" />
+	<meta http-equiv="Expires" content="0" />
+
+	<title>r/place clone</title>
+
+	<script src="jquery-3.7.1.min.js"></script>
+	<script src="client.js"></script>
+	<style>
+		body {
+			text-align: center;
+			align: center;
+			overflow: hidden;
+			margin: 0px;
+			padding: 0px;
+		}
+
+		canvas {
+			border: 1px solid black;
+		}
+
+		input[type=number] {
+			width: 3em;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>r/place clone</h1>
+
+	<canvas id="canvas" width="1000" height="1000"></canvas>
+	<form id="setForm">
+		(<input type="number" id="x" placeholder="x" min="0" max="1000" required>,
+		<input type="number" id="y" placeholder="y" min="0" max="1000" required>)
+		&nbsp; &nbsp; &nbsp;
+		(<select id="colorSelect" required> </select>)
+		&nbsp; &nbsp; &nbsp;
+		<input type="submit" id="sendButton" name="set" value="set" disabled/>
+	</form>
+</body>
+
+</html>
