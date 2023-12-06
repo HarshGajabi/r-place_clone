@@ -140,7 +140,7 @@ $(function () {
                 console.log("Setting pixel at (" + o.x + ", " + o.y + ") to color " + o.color);
                 context.fillStyle = colors[o.color];
                 context.fillRect(o.x, o.y, 1, 1);
-            } else if (o.type == "timeout") {
+            } else if (o?.type == "timeout") {
                 alert("timeout, try again in a few minutes");
             }
         }
