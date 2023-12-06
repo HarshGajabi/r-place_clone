@@ -1,0 +1,11 @@
+docker build -t place-web-socket-server .
+
+docker run -p 3000:3000 -v ~/.aws:/root/.aws place-web-socket-server
+
+docker login
+aws sso login
+
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 047695596424.dkr.ecr.us-east-2.amazonaws.com
+
+docker tag place-web-socket-server 047695596424.dkr.ecr.us-east-2.amazonaws.com/place
+docker push 047695596424.dkr.ecr.us-east-2.amazonaws.com/place

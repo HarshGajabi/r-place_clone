@@ -1,0 +1,3 @@
+docker run -d -v /Users/harsh/localTesting/redis-cluster.conf:/usr/local/etc/redis/redis.conf --name redis-cluster-node -p 52131:7000 redis redis-server /usr/local/etc/redis/redis.conf
+
+redis-cli -c -p 52131
