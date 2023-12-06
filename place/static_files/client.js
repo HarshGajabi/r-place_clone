@@ -41,8 +41,11 @@ const colorsRGBA = [
 
 async function fetchBoardData(url) {
     const response = await fetch(url);
-    const blob = await response.blob();
-    return blob.arrayBuffer();
+    if (response.ok) {
+        const blob = await response.blob();
+        return blob.arrayBuffer();
+    }
+    throw new Error('Fetching initial board data failed')
 }
 
 function processBoardData(arrayBuffer) {
@@ -104,6 +107,39 @@ $(function () {
         $colorSelect.append($('<option></option>').val(index).html(color));
     });
 
+    function connectWebSocket() {
+        socket = new WebSocket(WEBSOCKET_URL);
+        socket.onopen = function (event) {
+            $('#sendButton').removeAttr('disabled');
+            console.log("connected to server");
+
+            // Set up a ping to the server every 10 seconds
+            setInterval(function () {
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: "ping" }));
+                }
+            }, 10000); // 10 seconds interval
+        };
+        socket.onclose = function (event) {
+            alert("closed code:" + event.code + " reason:" + event.reason + " wasClean:" + event.wasClean);
+            // Reconnect after a delay
+            setTimeout(connectWebSocket, 1); // 1 second delay
+        };
+        socket.onmessage = function (event) {
+            console.log(event.data);
+            // TODO: check if the message field exists 
+            var o = JSON.parse(event.data)?.message;
+            if (o?.type == "set") {
+                var context = document.getElementById('canvas').getContext('2d');
+                // assume that o.color stores a 4-bit color index, o.x and o.y give position
+                console.log("Setting pixel at (" + o.x + ", " + o.y + ") to color " + o.color);
+                context.fillStyle = colors[o.color];
+                context.fillRect(o.x, o.y, 1, 1);
+            } else if (o.type == "timeout") {
+                alert("timeout, try again in a few minutes");
+            }
+        }
+    }
 
     fetchBoardData(BOARD_DATA_URL)
         .then(arrayBuffer => processBoardData(arrayBuffer))
@@ -111,38 +147,11 @@ $(function () {
             drawBoardOnCanvas(board, 'canvas');
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Error fetching the canvas:', error);
         });
 
-    socket = new WebSocket(WEBSOCKET_URL);
-    socket.onopen = function (event) {
-        $('#sendButton').removeAttr('disabled');
-        console.log("connected to server");
+    connectWebSocket();
 
-        // Set up a ping to the server every 10 seconds
-        setInterval(function() {
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: "ping" }));
-            }
-        }, 10000); // 10 seconds interval
-    };
-    socket.onclose = function (event) {
-        alert("closed code:" + event.code + " reason:" + event.reason + " wasClean:" + event.wasClean);
-    };
-    socket.onmessage = function (event) {
-        console.log(event.data);
-        // TODO: check if the message field exists 
-        var o = JSON.parse(event.data)?.message;
-        if (o?.type == "set") {
-            var context = document.getElementById('canvas').getContext('2d');
-            // assume that o.color stores a 4-bit color index, o.x and o.y give position
-            console.log("Setting pixel at (" + o.x + ", " + o.y + ") to color " + o.color);
-            context.fillStyle = colors[o.color];
-            context.fillRect(o.x, o.y, 1, 1);
-        } else if (o.type == "timeout") {
-            alert("timeout, try again in a few minutes");
-        }
-    }
     $('#setForm').submit(function (event) {
         var o = {
             'x': $('#x').val(),
@@ -158,4 +167,4 @@ $(function () {
     });
 });
 
-testPixel = (x,y) => document.getElementById("canvas").getContext('2d').getImageData(x,y,1,1).data
+testPixel = (x, y) => document.getElementById("canvas").getContext('2d').getImageData(x, y, 1, 1).data
