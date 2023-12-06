@@ -4,6 +4,8 @@ const WEBSOCKET_URL = `ws://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.c
 const BOARD_DATA_URL = `/board`;
 const BOARD_SET_URL = `/setPixel`;
 
+const userId = uuid.v4();
+
 var socket;
 const colors = [
     "white",
@@ -157,7 +159,6 @@ $(function () {
     $('#setForm').submit(function (event) {
         event.preventDefault(); 
     
-        var userId = 'UID'; 
         var x = parseInt($('#x').val());
         var y = parseInt($('#y').val());
         var colorIndex = parseInt($colorSelect.val());
