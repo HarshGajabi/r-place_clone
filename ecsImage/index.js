@@ -5,10 +5,30 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const bodyParser = require('body-parser');
+const { createCluster } = require('redis');
+const base64 = require('base-64');
 
 require('dotenv').config();
 
 const snsTopicArn = process.env.SNS_TOPIC_ARN;
+const redisHost = process.env.REDIS_HOST;
+const redisPort = process.env.REDIS_PORT;
+
+// Join a redis cluster
+const cluster = createCluster({
+  rootNodes: [{ url: redisHost + redisPort }]
+});
+
+// Handle Redis Cluster errors
+cluster.on('error', (err) => {
+  console.error('Redis Cluster Error:', err);
+  process.exit(1); // Exit if cannot connect to Redis Cluster
+});
+
+// Connect to the Redis Cluster
+cluster.connect().catch(err => {
+  console.error('Error connecting to Redis Cluster:', err);
+});
 
 // Initialize AWS SDK clients
 const sqsClient = new SQSClient({ region: 'us-east-2' });
@@ -22,6 +42,21 @@ const port = 3000;
 
 app.get('/health', (req, res) => {
   res.status(200).send({ status: 'UP', message: 'Server is running' });
+});
+
+// Endpoint to get the Redis board
+app.get('/getRedisBoard', async (req, res) => {
+  try {
+      if (await cluster.exists('board')) {
+          const rawData = await cluster.get('board');
+          const encodedData = base64.encode(rawData);
+          res.status(200).json({ data: encodedData });
+      } else {
+          res.status(404).json({ message: 'Board does not exist in Redis' });
+      }
+  } catch (error) {
+      res.status(500).json({ message: `Error: ${error.message}` });
+  }
 });
 
 // Global variables to store resource identifiers
@@ -215,6 +250,9 @@ const unsubscribeFromSNS = async () => {
 
 // Handle application termination
 const handleAppTermination = async (signal) => {
+  console.log("Disconneting Redis Cluster...");
+  cluster.disconnect();
+
   console.log(`Received ${signal}. Cleaning up resources...`);
   await unsubscribeFromSNS();
   await deleteQueue();
