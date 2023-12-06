@@ -8,6 +8,9 @@ const bodyParser = require('body-parser');
 const { createCluster } = require('redis');
 const base64 = require('base-64');
 
+const { getDatetimeById } = require('./dynamoDB.js');
+const { setBoardPixelDynamoDB, boardcastClients, setUserTimestampDynamoDB } = require('./lambda.js');
+
 require('dotenv').config();
 
 const snsTopicArn = process.env.SNS_TOPIC_ARN;
@@ -58,6 +61,51 @@ app.get('/getRedisBoard', async (req, res) => {
       res.status(500).json({ message: `Error: ${error.message}` });
   }
 });
+
+app.post('/updateTile', async (req, res) => {
+  try {
+      const { x, y, color, size = 1000, id } = req.body;
+
+      // Validate input
+      if (x === undefined || y === undefined || color === undefined || id === undefined) {
+          return res.status(500).json({ message: 'Missing id, x, y, or color' });
+      }
+      if (!(0 <= x < size && 0 <= y < size)) {
+          return res.status(400).json({ message: 'x or y out of bounds' });
+      }
+      if (!(0 <= color < 16)) {
+          return res.status(400).json({ message: 'Invalid color' });
+      }
+      const datetimeString = await getDatetimeById(id);
+
+      if (datetimeString) {
+        const datetimeFromDB = new Date(datetimeString);
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60000); // 60000 milliseconds in a minute
+        if (datetimeFromDB > fiveMinutesAgo) {
+          return res.status(400).json({message: "The user can only update the board once every 5 minutes"});
+        }
+      }
+      const clientBroadcast = boardcastClients(x, y, color);
+      const setUserTimestampDynamoDBPromise = setUserTimestampDynamoDB(id, new Date().toISOString());
+      const dynamodbPixelUpdatePromise = setBoardPixelDynamoDB(x, y, color);
+      const redisUpdate = await updateRedisBoard(x, y, color, size);
+
+      return res.status(200).json({ message: 'Tile updated' });
+  } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: `Error connecting to Redis: ${error.message}` });
+  }
+});
+
+async function updateRedisBoard(x, y, color, size) {
+  const offset = (x * size + y) * 4;
+  return await cluster.bitField('board', [{
+    operation: 'SET',
+    encoding: 'u4',
+    offset: offset,
+    value: color
+  }])
+}
 
 // Global variables to store resource identifiers
 let queueUrl = null;
