@@ -1,6 +1,9 @@
+
 const BOARD_SIZE = 1000;
 const WEBSOCKET_URL = `ws://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.com:3000`;
 const BOARD_DATA_URL = `/board`;
+const BOARD_SET_URL = `/setPixel`;
+
 var socket;
 const colors = [
     "white",
@@ -151,19 +154,45 @@ $(function () {
         });
 
     connectWebSocket();
-
     $('#setForm').submit(function (event) {
-        var o = {
-            'x': $('#x').val(),
-            'y': $('#y').val(),
-            'color': $colorSelect.val(),
+        event.preventDefault(); 
+    
+        var userId = 'UID'; 
+        var x = parseInt($('#x').val());
+        var y = parseInt($('#y').val());
+        var colorIndex = parseInt($colorSelect.val());
+        var color = colors[colorIndex];
+    
+        var data = {
+            userId: userId,
+            x: x,
+            y: y,
+            color: color
         };
-
-        for (var key in o) {
-            o[key] = parseInt(o[key]);
-        }
-        socket.send(JSON.stringify(o));
-        event.preventDefault();
+    
+        fetch(BOARD_SET_URL, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Success:', data);
+            $('#message').css('color', 'green');
+            $('#message').text('Set successful!'); 
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            $('#message').css('color', 'red');
+            $('#message').text('Issue encountered when setting: ' + error.message);
+        });
     });
 });
 
