@@ -49,11 +49,11 @@ app.get('/health', (req, res) => {
 
 // Endpoint to get the Redis board
 app.get('/getRedisBoard', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
   try {
       if (await cluster.exists('board')) {
           const rawData = await cluster.get('board');
           const encodedData = base64.encode(rawData);
-          res.header('Access-Control-Allow-Origin', '*');
           res.status(200).send(encodedData);
       } else {
           res.status(404).json({ message: 'Board does not exist in Redis' });
@@ -64,6 +64,7 @@ app.get('/getRedisBoard', async (req, res) => {
 });
 
 app.post('/updateTile', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
   try {
       const { x, y, color, size = 1000, id } = req.body;
 
