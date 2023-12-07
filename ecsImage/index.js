@@ -53,7 +53,8 @@ app.get('/getRedisBoard', async (req, res) => {
       if (await cluster.exists('board')) {
           const rawData = await cluster.get('board');
           const encodedData = base64.encode(rawData);
-          res.status(200).json({ data: encodedData });
+          res.header('Access-Control-Allow-Origin', '*');
+          res.status(200).send(encodedData);
       } else {
           res.status(404).json({ message: 'Board does not exist in Redis' });
       }
