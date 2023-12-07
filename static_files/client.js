@@ -1,8 +1,8 @@
 
 const BOARD_SIZE = 1000;
-const WEBSOCKET_URL = `ws://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.com:3000`;
-const BOARD_DATA_URL = `/board`;
-const BOARD_SET_URL = `/setPixel`;
+const WEBSOCKET_URL = `ws://13.59.220.161:3000`;
+const BOARD_DATA_URL = `http://13.59.220.161:3000/getRedisBoard`;
+const BOARD_SET_URL = `http://13.59.220.161:3000/updateTile`;
 
 const userId = uuid.v4();
 
@@ -47,21 +47,30 @@ const colorsRGBA = [
 async function fetchBoardData(url) {
     const response = await fetch(url);
     if (response.ok) {
-        const blob = await response.blob();
-        return blob.arrayBuffer();
+        const base64Data = await response.text();
+        const decodedData = base64ToUint8Array(base64Data);
+        return decodedData;
     }
-    throw new Error('Fetching initial board data failed')
+    throw new Error('Fetching initial board data failed');
 }
 
-function processBoardData(arrayBuffer) {
-    const byteArray = new Uint8Array(arrayBuffer);
+function base64ToUint8Array(base64Data) {
+    const binaryString = atob(base64Data);
+    const uint8Array = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+    }
+    return uint8Array;
+}
+
+function processBoardData(uint8Array) {
     let board = Array.from(Array(BOARD_SIZE), () => new Array(BOARD_SIZE));
 
     let byteIndex = 0;
     for (let y = 0; y < BOARD_SIZE; y++) {
         for (let x = 0; x < BOARD_SIZE; x += 2) { // Increment by 2 as each byte has 2 pixels
-            if (byteIndex < byteArray.length) {
-                const byte = byteArray[byteIndex++];
+            if (byteIndex < uint8Array.length) {
+                const byte = uint8Array[byteIndex++];
                 const high = byte >> 4; // Extract the high 4 bits
                 const low = byte & 0x0F; // Extract the low 4 bits
 
