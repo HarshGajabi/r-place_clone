@@ -53,12 +53,17 @@ app.get('/getRedisBoard', async (req, res) => {
   try {
       if (await cluster.exists('board')) {
           const rawData = await cluster.get('board');
-          const encodedData = base64.encode(rawData);
+
+          const buffer = Buffer.from(rawData, 'binary');
+          
+          const encodedData = buffer.toString('base64');
+          
           res.status(200).send(encodedData);
       } else {
           res.status(404).json({ message: 'Board does not exist in Redis' });
       }
   } catch (error) {
+      console.log(error);
       res.status(500).json({ message: `Error: ${error.message}` });
   }
 });
@@ -95,7 +100,7 @@ app.post('/updateTile', async (req, res) => {
       return res.status(200).json({ message: 'Tile updated' });
   } catch (error) {
       console.error(error);
-      return res.status(500).json({ message: `Error connecting to Redis: ${error.message}` });
+      return res.status(500).json({ message: `Error: ${error.message}` });
   }
 });
 
@@ -106,7 +111,7 @@ async function updateRedisBoard(x, y, color, size) {
     encoding: 'u4',
     offset: offset,
     value: color
-  }])
+  }]);
 }
 
 // Global variables to store resource identifiers
