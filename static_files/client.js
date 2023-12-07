@@ -171,13 +171,12 @@ $(function () {
         var x = parseInt($('#x').val());
         var y = parseInt($('#y').val());
         var colorIndex = parseInt($colorSelect.val());
-        var color = colors[colorIndex];
     
         var data = {
             id: userId,
             x: x,
             y: y,
-            color: color
+            color: colorIndex
         };
     
         fetch(BOARD_SET_URL, {
@@ -188,10 +187,13 @@ $(function () {
             body: JSON.stringify(data),
         })
         .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
+            // todo parse the response body as json
+            return response.json().then(responseBody => {
+                if (!response.ok) {
+                    throw new Error(`${responseBody.message}`);
+                }
+                return responseBody;
+            });
         })
         .then(data => {
             console.log('Success:', data);
