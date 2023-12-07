@@ -1,8 +1,8 @@
 
 const BOARD_SIZE = 1000;
-const WEBSOCKET_URL = `ws://13.59.220.161:3000`;
-const BOARD_DATA_URL = `http://13.59.220.161:3000/getRedisBoard`;
-const BOARD_SET_URL = `http://13.59.220.161:3000/updateTile`;
+const WEBSOCKET_URL = `ws://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.com:3000`;
+const BOARD_DATA_URL = `http://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.com:3000/getRedisBoard`;
+const BOARD_SET_URL = `http://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.com:3000/updateTile`;
 
 const userId = uuid.v4();
 
@@ -148,7 +148,7 @@ $(function () {
                 // assume that o.color stores a 4-bit color index, o.x and o.y give position
                 console.log("Setting pixel at (" + o.x + ", " + o.y + ") to color " + o.color);
                 context.fillStyle = colors[o.color];
-                context.fillRect(o.x, o.y, 1, 1);
+                context.fillRect(o.y, o.x, 1, 1);
             } else if (o?.type == "timeout") {
                 alert("timeout, try again in a few minutes");
             }
@@ -206,4 +206,4 @@ $(function () {
     });
 });
 
-testPixel = (x, y) => document.getElementById("canvas").getContext('2d').getImageData(x, y, 1, 1).data
+testPixel = (x, y) => document.getElementById("canvas").getContext('2d').getImageData(y, x, 1, 1).data
