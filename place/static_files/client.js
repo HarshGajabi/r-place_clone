@@ -165,14 +165,14 @@ $(function () {
         var color = colors[colorIndex];
     
         var data = {
-            userId: userId,
+            id: userId,
             x: x,
             y: y,
             color: color
         };
     
         fetch(BOARD_SET_URL, {
-            method: 'PUT',
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
