@@ -7,6 +7,7 @@ const WebSocket = require('ws');
 const bodyParser = require('body-parser');
 const { createCluster } = require('redis');
 const base64 = require('base-64');
+const cors = require('cors');
 
 const { getDatetimeById } = require('./dynamoDB.js');
 const { setBoardPixelDynamoDB, boardcastClients, setUserTimestampDynamoDB } = require('./lambda.js');
@@ -39,6 +40,7 @@ const snsClient = new SNSClient({ region: 'us-east-2' });
 
 const app = express();
 app.use(bodyParser.json());
+app.use(cors());
 
 const server = http.createServer(app);
 const port = 3000;
