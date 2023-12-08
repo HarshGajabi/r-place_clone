@@ -25,10 +25,18 @@ Parameters:
 Resources:
 
 # ECS section
+  ECSFargateCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: !Sub '${ECSClusterName}-${AWS::StackName}'
+      CapacityProviders: 
+        - "FARGATE"
+        - "FARGATE_SPOT"
+
   ECSService:
     Type: 'AWS::ECS::Service'
     Properties:
-      Cluster: !Ref ECSClusterName
+      Cluster: !Ref ECSFargateCluster
       TaskDefinition: 'arn:aws:ecs:us-east-2:047695596424:task-definition/webSockerServer:4'
       LaunchType: FARGATE
       ServiceName: !Sub '${ECSServiceName}-${AWS::StackName}'
