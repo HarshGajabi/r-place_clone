@@ -1,8 +1,8 @@
 
 const BOARD_SIZE = 1000;
-const WEBSOCKET_URL = `ws://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.com:3000`;
-const BOARD_DATA_URL = `http://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.com:3000/getRedisBoard`;
-const BOARD_SET_URL = `http://wssLoadBalancer-1530792450.us-east-2.elb.amazonaws.com:3000/updateTile`;
+const WEBSOCKET_URL = `wss://${window.location.hostname}`;
+const BOARD_DATA_URL = `${window.location.origin}/getRedisBoard`;
+const BOARD_SET_URL = `${window.location.origin}/updateTile`;
 
 const userId = uuid.v4();
 
@@ -135,7 +135,7 @@ $(function () {
             }, 10000); // 10 seconds interval
         };
         socket.onclose = function (event) {
-            alert("closed code:" + event.code + " reason:" + event.reason + " wasClean:" + event.wasClean);
+            // alert("closed code:" + event.code + " reason:" + event.reason + " wasClean:" + event.wasClean);
             // Reconnect after a delay
             setTimeout(connectWebSocket, 1); // 1 second delay
         };
@@ -208,4 +208,5 @@ $(function () {
     });
 });
 
-testPixel = (x, y) => document.getElementById("canvas").getContext('2d').getImageData(y, x, 1, 1).data
+
+const testPixel = (x, y) => document.getElementById("canvas").getContext('2d').getImageData(y, x, 1, 1).data
