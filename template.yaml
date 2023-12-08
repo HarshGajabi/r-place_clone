@@ -1,0 +1,830 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template for r/place"
+Resources:
+    EC2VPC:
+        Type: "AWS::EC2::VPC"
+        Properties:
+            CidrBlock: "172.31.0.0/16"
+            EnableDnsSupport: true
+            EnableDnsHostnames: true
+            InstanceTenancy: "default"
+
+    EC2SecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "The load balancer for the internet-facing security group"
+            GroupName: "LoadBalancerSecurityGroup"
+            VpcId: !Ref EC2VPC
+            SecurityGroupIngress: 
+              - 
+                CidrIp: "0.0.0.0/0"
+                Description: "Internet facing port 3000"
+                FromPort: 3000
+                IpProtocol: "tcp"
+                ToPort: 3000
+            SecurityGroupEgress: 
+              - 
+                DestinationSecurityGroupId: !Ref EC2SecurityGroup2
+                Description: "Allow traffic to the ECS container security group"
+                FromPort: 3000
+                IpProtocol: "tcp"
+                ToPort: 3000
+
+    EC2SecurityGroup2:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "SG for wss ECS service"
+            GroupName: "wssECSServiceSecurityGroup"
+            VpcId: !Ref EC2VPC
+            SecurityGroupIngress: 
+              - 
+                SourceSecurityGroupId: !Sub "${ElasticLoadBalancingV2LoadBalancer.SecurityGroups}"
+                SourceSecurityGroupOwnerId: !Ref AWS::AccountId
+                Description: "Allow traffic from the loadbalancer sg"
+                FromPort: 3000
+                IpProtocol: "tcp"
+                ToPort: 3000
+            SecurityGroupEgress: 
+              - 
+                CidrIp: "0.0.0.0/0"
+                IpProtocol: "-1"
+
+    EC2Subnet:
+        Type: "AWS::EC2::Subnet"
+        Properties:
+            AvailabilityZone: !Sub "${AWS::Region}a"
+            CidrBlock: "172.31.0.0/20"
+            VpcId: !Ref EC2VPC
+            MapPublicIpOnLaunch: true
+
+    EC2Subnet2:
+        Type: "AWS::EC2::Subnet"
+        Properties:
+            AvailabilityZone: !Sub "${AWS::Region}c"
+            CidrBlock: "172.31.32.0/20"
+            VpcId: !Ref EC2VPC
+            MapPublicIpOnLaunch: true
+
+    EC2Subnet3:
+        Type: "AWS::EC2::Subnet"
+        Properties:
+            AvailabilityZone: !Sub "${AWS::Region}b"
+            CidrBlock: "172.31.16.0/20"
+            VpcId: !Ref EC2VPC
+            MapPublicIpOnLaunch: true
+
+    ElasticLoadBalancingV2LoadBalancer:
+        Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+        Properties:
+            Name: "wssLoadBalancer"
+            Scheme: "internet-facing"
+            Type: "application"
+            Subnets: 
+              - !Ref EC2Subnet3
+              - !Ref EC2Subnet2
+              - !Ref EC2Subnet
+            SecurityGroups: 
+              - "sg-0bdafb39355b2597f"
+            IpAddressType: "ipv4"
+            LoadBalancerAttributes: 
+              - 
+                Key: "access_logs.s3.enabled"
+                Value: "false"
+              - 
+                Key: "idle_timeout.timeout_seconds"
+                Value: "60"
+              - 
+                Key: "deletion_protection.enabled"
+                Value: "false"
+              - 
+                Key: "routing.http2.enabled"
+                Value: "true"
+              - 
+                Key: "routing.http.drop_invalid_header_fields.enabled"
+                Value: "false"
+              - 
+                Key: "routing.http.xff_client_port.enabled"
+                Value: "false"
+              - 
+                Key: "routing.http.preserve_host_header.enabled"
+                Value: "false"
+              - 
+                Key: "routing.http.xff_header_processing.mode"
+                Value: "append"
+              - 
+                Key: "load_balancing.cross_zone.enabled"
+                Value: "true"
+              - 
+                Key: "routing.http.desync_mitigation_mode"
+                Value: "defensive"
+              - 
+                Key: "waf.fail_open.enabled"
+                Value: "false"
+              - 
+                Key: "routing.http.x_amzn_tls_version_and_cipher_suite.enabled"
+                Value: "false"
+              - 
+                Key: "connection_logs.s3.enabled"
+                Value: "false"
+
+    ElasticLoadBalancingV2Listener:
+        Type: "AWS::ElasticLoadBalancingV2::Listener"
+        Properties:
+            LoadBalancerArn: !Ref ElasticLoadBalancingV2LoadBalancer
+            Port: 3000
+            Protocol: "HTTP"
+            DefaultActions: 
+              - 
+                TargetGroupArn: !Ref ElasticLoadBalancingV2TargetGroup
+                Type: "forward"
+
+    EC2SecurityGroup3:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "default VPC security group"
+            GroupName: "default"
+            VpcId: !Ref EC2VPC
+            SecurityGroupIngress: 
+              - 
+                CidrIp: "99.245.113.176/32"
+                IpProtocol: "-1"
+              - 
+                SourceSecurityGroupId: "sg-06a3908c1245df706"
+                SourceSecurityGroupOwnerId: !Ref AWS::AccountId
+                IpProtocol: "-1"
+            SecurityGroupEgress: 
+              - 
+                CidrIp: "0.0.0.0/0"
+                IpProtocol: "-1"
+
+    EC2SecurityGroup4:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "Redis SG"
+            GroupName: "RedisElasticache"
+            VpcId: !Ref EC2VPC
+            SecurityGroupIngress: 
+              - 
+                SourceSecurityGroupId: !Ref EC2SecurityGroup3
+                SourceSecurityGroupOwnerId: !Ref AWS::AccountId
+                IpProtocol: "-1"
+              - 
+                SourceSecurityGroupId: !Ref EC2SecurityGroup2
+                SourceSecurityGroupOwnerId: !Ref AWS::AccountId
+                IpProtocol: "-1"
+
+    ElasticLoadBalancingV2TargetGroup:
+        Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+        Properties:
+            HealthCheckIntervalSeconds: 30
+            HealthCheckPath: "/health"
+            Port: 80
+            Protocol: "HTTP"
+            HealthCheckPort: "traffic-port"
+            HealthCheckProtocol: "HTTP"
+            HealthCheckTimeoutSeconds: 5
+            UnhealthyThresholdCount: 2
+            TargetType: "ip"
+            Matcher: 
+                HttpCode: "200"
+            HealthyThresholdCount: 5
+            VpcId: !Ref EC2VPC
+            Name: "wssTG"
+            HealthCheckEnabled: true
+            TargetGroupAttributes: 
+              - 
+                Key: "target_group_health.unhealthy_state_routing.minimum_healthy_targets.percentage"
+                Value: "off"
+              - 
+                Key: "deregistration_delay.timeout_seconds"
+                Value: "300"
+              - 
+                Key: "stickiness.type"
+                Value: "lb_cookie"
+              - 
+                Key: "stickiness.lb_cookie.duration_seconds"
+                Value: "86400"
+              - 
+                Key: "slow_start.duration_seconds"
+                Value: "0"
+              - 
+                Key: "stickiness.app_cookie.duration_seconds"
+                Value: "86400"
+              - 
+                Key: "target_group_health.dns_failover.minimum_healthy_targets.percentage"
+                Value: "off"
+              - 
+                Key: "load_balancing.cross_zone.enabled"
+                Value: "use_load_balancer_configuration"
+              - 
+                Key: "load_balancing.algorithm.type"
+                Value: "round_robin"
+              - 
+                Key: "target_group_health.unhealthy_state_routing.minimum_healthy_targets.count"
+                Value: "1"
+              - 
+                Key: "stickiness.enabled"
+                Value: "false"
+              - 
+                Key: "target_group_health.dns_failover.minimum_healthy_targets.count"
+                Value: "1"
+              - 
+                Key: "load_balancing.algorithm.anomaly_mitigation"
+                Value: "off"
+              - 
+                Key: "stickiness.app_cookie.cookie_name"
+                Value: ""
+            Targets: 
+              - 
+                Id: "172.31.43.61"
+                Port: 3000
+                AvailabilityZone: !GetAtt EC2Subnet2.AvailabilityZone
+
+    EC2KeyPair:
+        Type: "AWS::EC2::KeyPair"
+        Properties:
+            KeyName: "HarshMac"
+            KeyType: "rsa"
+            
+    ECRRepository:
+        Type: "AWS::ECR::Repository"
+        Properties:
+            RepositoryName: "place"
+            LifecyclePolicy: 
+                RegistryId: !Ref AWS::AccountId
+
+    ECSCluster:
+        Type: "AWS::ECS::Cluster"
+        Properties:
+            ClusterName: "Place"
+            CapacityProviders: 
+              - "FARGATE"
+              - "FARGATE_SPOT"
+
+    ECSService:
+        Type: "AWS::ECS::Service"
+        Properties:
+            ServiceName: "wssService"
+            Cluster: !GetAtt ECSCluster.Arn
+            LoadBalancers: 
+              - 
+                TargetGroupArn: !Ref ElasticLoadBalancingV2TargetGroup
+                ContainerName: "websocketServer"
+                ContainerPort: 3000
+            DesiredCount: 1
+            LaunchType: "FARGATE"
+            PlatformVersion: "LATEST"
+            TaskDefinition: !Ref ECSTaskDefinition
+            DeploymentConfiguration: 
+                MaximumPercent: 200
+                MinimumHealthyPercent: 100
+                DeploymentCircuitBreaker: 
+                    Enable: true
+                    Rollback: true
+            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS"
+            NetworkConfiguration: 
+                AwsvpcConfiguration: 
+                    AssignPublicIp: "ENABLED"
+                    SecurityGroups: 
+                      - !Ref EC2SecurityGroup2
+                    Subnets: 
+                      - !Ref EC2Subnet
+                      - !Ref EC2Subnet3
+                      - !Ref EC2Subnet2
+            HealthCheckGracePeriodSeconds: 0
+            SchedulingStrategy: "REPLICA"
+            DeploymentController: 
+                Type: "ECS"
+
+    ECSTaskDefinition:
+        Type: "AWS::ECS::TaskDefinition"
+        Properties:
+            ContainerDefinitions: 
+              - 
+                Cpu: 512
+                Environment: 
+                  - 
+                    Name: "REDIS_PORT"
+                    Value: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Port
+                  - 
+                    Name: "REDIS_HOST"
+                    Value: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Address
+                Essential: true
+                HealthCheck: 
+                    Command: 
+                      - "CMD-SHELL"
+                      - "curl -f http://localhost:3000/health || exit 1"
+                    Interval: 30
+                    Timeout: 5
+                    Retries: 3
+                    StartPeriod: 5
+                Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/place"
+                LogConfiguration: 
+                    LogDriver: "awslogs"
+                    Options: 
+                        awslogs-create-group: "true"
+                        awslogs-group: "/ecs/webSockerServer"
+                        awslogs-region: !Ref AWS::Region
+                        awslogs-stream-prefix: "ecs"
+                Name: "websocketServer"
+                PortMappings: 
+                  - 
+                    ContainerPort: 3000
+                    HostPort: 3000
+                    Protocol: "tcp"
+            Family: "webSockerServer"
+            TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole"
+            ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole"
+            NetworkMode: "awsvpc"
+            RequiresCompatibilities: 
+              - "FARGATE"
+            Cpu: "512"
+            Memory: "2048"
+
+    S3Bucket:
+        Type: "AWS::S3::Bucket"
+        Properties:
+            BucketName: "rplace-static"
+            BucketEncryption: 
+                ServerSideEncryptionConfiguration: 
+                  - 
+                    ServerSideEncryptionByDefault: 
+                        SSEAlgorithm: "AES256"
+                    BucketKeyEnabled: true
+            VersioningConfiguration: 
+                Status: "Enabled"
+            OwnershipControls: 
+                Rules: 
+                  - 
+                    ObjectOwnership: "BucketOwnerEnforced"
+            PublicAccessBlockConfiguration: 
+                BlockPublicAcls: true
+                BlockPublicPolicy: true
+                IgnorePublicAcls: true
+                RestrictPublicBuckets: true
+
+    S3BucketPolicy:
+        Type: "AWS::S3::BucketPolicy"
+        Properties:
+            Bucket: !Ref S3Bucket
+            PolicyDocument: 
+                Version: "2008-10-17"
+                Id: "PolicyForCloudFrontPrivateContent"
+                Statement: 
+                  - 
+                    Sid: "AllowCloudFrontServicePrincipal"
+                    Effect: "Allow"
+                    Principal: 
+                        Service: "cloudfront.amazonaws.com"
+                    Action: "s3:GetObject"
+                    Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+                    Condition: 
+                        StringEquals: 
+                            "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+
+    DynamoDBTable:
+        Type: "AWS::DynamoDB::Table"
+        Properties:
+            AttributeDefinitions: 
+              - 
+                AttributeName: "x"
+                AttributeType: "N"
+              - 
+                AttributeName: "y"
+                AttributeType: "N"
+            TableName: "board"
+            KeySchema: 
+              - 
+                AttributeName: "x"
+                KeyType: "HASH"
+              - 
+                AttributeName: "y"
+                KeyType: "RANGE"
+            ProvisionedThroughput: 
+                ReadCapacityUnits: 1
+                WriteCapacityUnits: 1
+
+    DynamoDBTable2:
+        Type: "AWS::DynamoDB::Table"
+        Properties:
+            AttributeDefinitions: 
+              - 
+                AttributeName: "id"
+                AttributeType: "S"
+            TableName: "user"
+            KeySchema: 
+              - 
+                AttributeName: "id"
+                KeyType: "HASH"
+            ProvisionedThroughput: 
+                ReadCapacityUnits: 1
+                WriteCapacityUnits: 1
+
+    ApplicationAutoScalingScalableTarget:
+        Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+        Properties:
+            MaxCapacity: 10
+            MinCapacity: 1
+            ResourceId: !Sub "table/${DynamoDBTable2}"
+            RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
+            ScalableDimension: "dynamodb:table:WriteCapacityUnits"
+            ServiceNamespace: "dynamodb"
+            SuspendedState: 
+                DynamicScalingInSuspended: false
+                DynamicScalingOutSuspended: false
+                ScheduledScalingSuspended: false
+
+    ApplicationAutoScalingScalableTarget2:
+        Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+        Properties:
+            MaxCapacity: 10
+            MinCapacity: 1
+            ResourceId: !Sub "table/${DynamoDBTable}"
+            RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
+            ScalableDimension: "dynamodb:table:WriteCapacityUnits"
+            ServiceNamespace: "dynamodb"
+            SuspendedState: 
+                DynamicScalingInSuspended: false
+                DynamicScalingOutSuspended: false
+                ScheduledScalingSuspended: false
+
+    ElastiCacheReplicationGroup:
+        Type: "AWS::ElastiCache::ReplicationGroup"
+        Properties:
+            AutoMinorVersionUpgrade: true
+            ReplicationGroupId: "place"
+            ReplicationGroupDescription: "r/place in memory"
+            Engine: redis
+            EngineVersion: 5.0.4
+            NumNodeGroups: 1
+            ReplicasPerNodeGroup: 1
+            AutomaticFailoverEnabled: true
+            CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+            CacheParameterGroupName: default.redis5.0.cluster.on
+            SecurityGroupIds:
+                 - !Ref EC2SecurityGroup4
+            Port: 6379
+            SnapshotRetentionLimit: 1
+            SnapshotWindow: "06:00-07:00"
+            CacheNodeType: "cache.t3.micro"
+            TransitEncryptionEnabled: false
+            AtRestEncryptionEnabled: false
+            MultiAZEnabled: true
+
+    ElastiCacheSubnetGroup:
+        Type: "AWS::ElastiCache::SubnetGroup"
+        Properties:
+            Description: "Subnet group for ElastiCache"
+            CacheSubnetGroupName: "reddit-place"
+            SubnetIds: 
+              - !Ref EC2Subnet
+              - !Ref EC2Subnet3
+              - !Ref EC2Subnet2
+
+    ElastiCacheUser:
+        Type: "AWS::ElastiCache::User"
+        Properties:
+            UserId: "default"
+            UserName: "default"
+            Engine: "redis"
+            AccessString: "on ~* +@all"
+            NoPasswordRequired: true
+
+    EC2VPCGatewayAttachment:
+        Type: "AWS::EC2::VPCGatewayAttachment"
+        Properties:
+            InternetGatewayId: !Ref EC2InternetGateway
+            VpcId: !Ref EC2VPC
+
+    EC2InternetGateway:
+        Type: "AWS::EC2::InternetGateway"
+
+    EC2Route:
+        Type: "AWS::EC2::Route"
+        Properties:
+            DestinationCidrBlock: "0.0.0.0/0"
+            GatewayId: !Ref EC2InternetGateway
+            RouteTableId: !Ref EC2RouteTable
+
+    EC2SubnetNetworkAclAssociation:
+        Type: "AWS::EC2::SubnetNetworkAclAssociation"
+        Properties:
+            SubnetId: !Ref EC2Subnet3
+            NetworkAclId: !Ref EC2NetworkAcl
+
+    EC2SubnetNetworkAclAssociation2:
+        Type: "AWS::EC2::SubnetNetworkAclAssociation"
+        Properties:
+            SubnetId: !Ref EC2Subnet
+            NetworkAclId: !Ref EC2NetworkAcl
+
+    EC2SubnetNetworkAclAssociation3:
+        Type: "AWS::EC2::SubnetNetworkAclAssociation"
+        Properties:
+            SubnetId: !Ref EC2Subnet2
+            NetworkAclId: !Ref EC2NetworkAcl
+
+    LambdaFunction:
+        Type: "AWS::Lambda::Function"
+        Properties:
+            Description: "Lambda to initialize the redis board"
+            Environment: 
+                Variables: 
+                    REDIS_HOST: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Address
+                    REDIS_PORT: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Port
+                    AWS_APPCONFIG_EXTENSION_PREFETCH_LIST: "/applications/place/environments/dev/configurations/place"
+            FunctionName: "initializeRedisBoard"
+            Handler: "lambda_function.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            Code: 
+                S3Bucket: !Sub "awslambda-${AWS::Region}-tasks"
+                S3Key: !Sub "/snapshots/${AWS::AccountId}/initializeRedisBoard-8ab844a9-a9cc-4006-9f9c-bead633b5b66"
+                S3ObjectVersion: "auvwK4sLWU_k8PsApWZcvA2.nWhJDFhv"
+            MemorySize: 128
+            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambdaVPC"
+            Runtime: "python3.11"
+            Timeout: 3
+            TracingConfig: 
+                Mode: "PassThrough"
+            VpcConfig: 
+                SubnetIds: 
+                  - !Ref EC2Subnet
+                  - !Ref EC2Subnet3
+                  - !Ref EC2Subnet2
+                SecurityGroupIds: 
+                  - !Ref EC2SecurityGroup3
+            Layers: 
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:redis:3"
+              - !Sub "arn:aws:lambda:${AWS::Region}:728743619870:layer:AWS-AppConfig-Extension:81"
+            EphemeralStorage: 
+                Size: 512
+
+    LambdaFunction2:
+        Type: "AWS::Lambda::Function"
+        Properties:
+            Description: ""
+            Environment: 
+                Variables: 
+                    REDIS_HOST: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Address
+                    REDIS_PORT: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Port
+            FunctionName: "setBoardPixel"
+            Handler: "lambda_function.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            Code: 
+                S3Bucket: !Sub "awslambda-${AWS::Region}-tasks"
+                S3Key: !Sub "/snapshots/${AWS::AccountId}/setBoardPixel-bb7c46a6-2c2e-4df2-b248-5534f17fd882"
+                S3ObjectVersion: "Hlz0yVxeHXAaQ.oKJbHLFIJifOzCfwGC"
+            MemorySize: 128
+            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambdaVPC"
+            Runtime: "python3.11"
+            Timeout: 3
+            TracingConfig: 
+                Mode: "PassThrough"
+            VpcConfig: 
+                SubnetIds: 
+                  - !Ref EC2Subnet
+                  - !Ref EC2Subnet3
+                  - !Ref EC2Subnet2
+                SecurityGroupIds: 
+                  - !Ref EC2SecurityGroup3
+            Layers: 
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:redis:3"
+            EphemeralStorage: 
+                Size: 512
+
+    EC2DHCPOptions:
+        Type: "AWS::EC2::DHCPOptions"
+        Properties:
+            DomainName: !Sub "${AWS::Region}.compute.internal"
+
+    EC2VPCDHCPOptionsAssociation:
+        Type: "AWS::EC2::VPCDHCPOptionsAssociation"
+        Properties:
+            DhcpOptionsId: !Ref EC2DHCPOptions
+            VpcId: !Ref EC2VPC
+
+    EC2NetworkAcl:
+        Type: "AWS::EC2::NetworkAcl"
+        Properties:
+            VpcId: !Ref EC2VPC
+
+    EC2NetworkAclEntry:
+        Type: "AWS::EC2::NetworkAclEntry"
+        Properties:
+            CidrBlock: "0.0.0.0/0"
+            Egress: true
+            NetworkAclId: !Ref EC2NetworkAcl
+            Protocol: -1
+            RuleAction: "allow"
+            RuleNumber: 100
+
+    EC2NetworkAclEntry2:
+        Type: "AWS::EC2::NetworkAclEntry"
+        Properties:
+            CidrBlock: "0.0.0.0/0"
+            Egress: false
+            NetworkAclId: !Ref EC2NetworkAcl
+            Protocol: -1
+            RuleAction: "allow"
+            RuleNumber: 100
+
+    EC2RouteTable:
+        Type: "AWS::EC2::RouteTable"
+        Properties:
+            VpcId: !Ref EC2VPC
+
+    CloudFrontDistribution:
+        Type: "AWS::CloudFront::Distribution"
+        Properties:
+            DistributionConfig: 
+                Origins: 
+                  - 
+                    ConnectionAttempts: 3
+                    ConnectionTimeout: 10
+                    DomainName: !Sub "${S3Bucket}.s3.${AWS::Region}.amazonaws.com"
+                    Id: !Sub "${S3Bucket}.s3.${AWS::Region}.amazonaws.com"
+                    OriginPath: "/static"
+                    S3OriginConfig: 
+                        OriginAccessIdentity: ""
+                  - 
+                    ConnectionAttempts: 3
+                    ConnectionTimeout: 10
+                    CustomOriginConfig: 
+                        HTTPPort: 3000
+                        HTTPSPort: 443
+                        OriginKeepaliveTimeout: 5
+                        OriginProtocolPolicy: "http-only"
+                        OriginReadTimeout: 30
+                        OriginSSLProtocols: 
+                          - "TLSv1.2"
+                    DomainName: !GetAtt ElasticLoadBalancingV2LoadBalancer.DNSName
+                    Id: !GetAtt ElasticLoadBalancingV2LoadBalancer.DNSName
+                    OriginPath: ""
+                DefaultCacheBehavior: 
+                    AllowedMethods: 
+                      - "HEAD"
+                      - "DELETE"
+                      - "POST"
+                      - "GET"
+                      - "OPTIONS"
+                      - "PUT"
+                      - "PATCH"
+                    CachedMethods: 
+                      - "HEAD"
+                      - "GET"
+                    Compress: true
+                    CachePolicyId: "33ca6483-c564-4447-9d1a-c6e32d1d670f"
+                    OriginRequestPolicyId: "33f36d7e-f396-46d9-90e0-52428a34d9dc"
+                    SmoothStreaming: false
+                    TargetOriginId: !GetAtt ElasticLoadBalancingV2LoadBalancer.DNSName
+                    ViewerProtocolPolicy: "allow-all"
+                CacheBehaviors: 
+                  - 
+                    AllowedMethods: 
+                      - "HEAD"
+                      - "GET"
+                    Compress: true
+                    CachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+                    PathPattern: "/app/*"
+                    SmoothStreaming: false
+                    TargetOriginId: !Sub "${S3Bucket}.s3.${AWS::Region}.amazonaws.com"
+                    ViewerProtocolPolicy: "allow-all"
+                Comment: "rplace Cloudfront distribution"
+                PriceClass: "PriceClass_All"
+                Enabled: true
+                ViewerCertificate: 
+                    CloudFrontDefaultCertificate: true
+                    MinimumProtocolVersion: "TLSv1"
+                    SslSupportMethod: "vip"
+                Restrictions: 
+                    GeoRestriction: 
+                        RestrictionType: "none"
+                HttpVersion: "http2and3"
+                DefaultRootObject: ""
+                IPV6Enabled: true
+
+    CloudFrontOriginAccessControl:
+        Type: "AWS::CloudFront::OriginAccessControl"
+        Properties:
+            OriginAccessControlConfig: 
+                Name: !Sub "${S3Bucket}.s3.${AWS::Region}.amazonaws.com"
+                OriginAccessControlOriginType: "s3"
+                SigningBehavior: "always"
+                SigningProtocol: "sigv4"
+
+    CloudFrontCachePolicy:
+        Type: "AWS::CloudFront::CachePolicy"
+        Properties:
+            CachePolicyConfig: 
+                Name: "apiCloudfrontCache"
+                Comment: "Caching policy for API calls at the CDN level"
+                DefaultTTL: 5
+                MaxTTL: 5
+                MinTTL: 1
+                ParametersInCacheKeyAndForwardedToOrigin: 
+                    EnableAcceptEncodingGzip: true
+                    EnableAcceptEncodingBrotli: true
+                    CookiesConfig: 
+                        CookieBehavior: "none"
+                    HeadersConfig: 
+                        HeaderBehavior: "none"
+                    QueryStringsConfig: 
+                        QueryStringBehavior: "none"
+    SNSTopic:
+        Type: "AWS::SNS::Topic"
+        Properties:
+            DisplayName: ""
+            TopicName: "client-broadcast"
+
+    SNSTopicPolicy:
+        Type: "AWS::SNS::TopicPolicy"
+        Properties:
+            PolicyDocument: !Sub "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\"],\"Resource\":\"${SNSTopic}\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"${AWS::AccountId}\"}}}]}"
+            Topics: 
+              - !Ref SNSTopic
+
+    LambdaFunction3:
+        Type: "AWS::Lambda::Function"
+        Properties:
+            Description: ""
+            FunctionName: !Sub "${LambdaFunction2}DynamoDB"
+            Handler: "lambda_function.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            Code: 
+                S3Bucket: !Sub "awslambda-${AWS::Region}-tasks"
+                S3Key: !Sub "/snapshots/${AWS::AccountId}/${LambdaFunction2}DynamoDB-6a017d99-e4ee-4e35-97b0-455daf018f7c"
+                S3ObjectVersion: "tgM25pBxcJe3jfHEQk9Nm.bNi5YR8wOd"
+            MemorySize: 128
+            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambdaVPC"
+            Runtime: "python3.11"
+            Timeout: 3
+            TracingConfig: 
+                Mode: "PassThrough"
+            EphemeralStorage: 
+                Size: 512
+
+    LambdaFunction4:
+        Type: "AWS::Lambda::Function"
+        Properties:
+            Description: ""
+            Environment: 
+                Variables: 
+                    SNS_TOPIC_ARN: !Ref SNSTopic
+            FunctionName: !Sub "${DynamoDBTable}castClients"
+            Handler: "lambda_function.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            Code: 
+                S3Bucket: !Sub "awslambda-${AWS::Region}-tasks"
+                S3Key: !Sub "/snapshots/${AWS::AccountId}/${DynamoDBTable}castClients-a145bc26-e280-4aa3-9f63-6340b904f346"
+                S3ObjectVersion: "J8IuR2yp5MRhhtM0DvgYW36n8hmM8eSp"
+            MemorySize: 128
+            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambdaVPC"
+            Runtime: "python3.11"
+            Timeout: 3
+            TracingConfig: 
+                Mode: "PassThrough"
+            EphemeralStorage: 
+                Size: 512
+
+    LambdaFunction5:
+        Type: "AWS::Lambda::Function"
+        Properties:
+            Description: ""
+            FunctionName: "setUserTimestampDynamoDB"
+            Handler: "lambda_function.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            Code: 
+                S3Bucket: !Sub "awslambda-${AWS::Region}-tasks"
+                S3Key: !Sub "/snapshots/${AWS::AccountId}/setUserTimestampDynamoDB-d49143de-a390-437b-86c2-8a0adb46126a"
+                S3ObjectVersion: "TGeGSXyItpsR7QOMPIeVLPcDN.KteCpZ"
+            MemorySize: 128
+            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambdaVPC"
+            Runtime: "python3.11"
+            Timeout: 3
+            TracingConfig: 
+                Mode: "PassThrough"
+            EphemeralStorage: 
+                Size: 512
+
+    LambdaVersion:
+        Type: "AWS::Lambda::Version"
+        Properties:
+            Description: ""
+            FunctionName: !Sub "${LambdaFunction2}DynamoDB"
+
+    LambdaVersion2:
+        Type: "AWS::Lambda::Version"
+        Properties:
+            Description: "InitRedisBoard without app config"
+            FunctionName: !Ref LambdaFunction
+
+    LambdaVersion3:
+        Type: "AWS::Lambda::Version"
+        Properties:
+            Description: ""
+            FunctionName: !Sub "${DynamoDBTable}castClients"
