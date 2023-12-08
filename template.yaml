@@ -1,5 +1,77 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "CloudFormation template for r/place"
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: The name of the S3 bucket for r/place static content
+    Default: "rplace-static"
+
+  LoadBalancerName:
+    Type: String
+    Description: The name of the load balancer
+    Default: "wssLoadBalancer"
+
+  LoadBalancerSecurityGroupName:
+    Type: String
+    Description: The name of the security group for the load balancer
+    Default: "LoadBalancerSecurityGroup"
+  
+  ElasticTargetGroupName:
+    Type: String
+    Description: The name of the target group for the load balancer
+    Default: "wssTG"
+
+  wssECSServiceSecurityGroupName:
+    Type: String
+    Description: The name of the security group for the ECS service
+    Default: "wssECSServiceSecurityGroup"
+
+  RedisSecurityGroupName:
+    Type: String
+    Description: The name of the security group for the redis cluster
+    Default: "RedisElasticache"
+
+  ECRRepositoryName:
+    Type: String
+    Description: The name of the ECR repository
+    Default: "place"
+  
+  ECSClusterName:
+    Type: String
+    Description: The name of the ECS cluster
+    Default: "Place"
+  
+  ECSServiceName:
+    Type: String
+    Description: The name of the ECS service
+    Default: "wssService"
+  
+  ECSTaskContainerName:
+    Type: String
+    Description: The name of the ECS task container
+    Default: "webSockerServer"
+
+  ECSTaskFamily:
+    Type: String
+    Description: The name of the ECS task family
+    Default: "webSockerServer"
+  
+  DynamoBoardTableName:
+    Type: String
+    Description: The name of the DynamoDB table for the board
+    Default: "board"
+  
+  DynamoUserTableName:
+    Type: String
+    Description: The name of the DynamoDB table for the users
+    Default: "user"
+
+  ElastiCacheReplicationGroupID:
+    Type: String
+    Description: The id of the ElastiCache replication group
+    Default: "place"
+  
 Resources:
     EC2VPC:
         Type: "AWS::EC2::VPC"
@@ -13,7 +85,7 @@ Resources:
         Type: "AWS::EC2::SecurityGroup"
         Properties:
             GroupDescription: "The load balancer for the internet-facing security group"
-            GroupName: "LoadBalancerSecurityGroup"
+            GroupName: !Ref LoadBalancerSecurityGroupName
             VpcId: !Ref EC2VPC
             SecurityGroupIngress: 
               - 
@@ -34,7 +106,7 @@ Resources:
         Type: "AWS::EC2::SecurityGroup"
         Properties:
             GroupDescription: "SG for wss ECS service"
-            GroupName: "wssECSServiceSecurityGroup"
+            GroupName: !Ref wssECSServiceSecurityGroupName
             VpcId: !Ref EC2VPC
             SecurityGroupIngress: 
               - 
@@ -76,7 +148,7 @@ Resources:
     ElasticLoadBalancingV2LoadBalancer:
         Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
         Properties:
-            Name: "wssLoadBalancer"
+            Name: !Ref LoadBalancerName
             Scheme: "internet-facing"
             Type: "application"
             Subnets: 
@@ -161,7 +233,7 @@ Resources:
         Type: "AWS::EC2::SecurityGroup"
         Properties:
             GroupDescription: "Redis SG"
-            GroupName: "RedisElasticache"
+            GroupName: !Ref RedisSecurityGroupName
             VpcId: !Ref EC2VPC
             SecurityGroupIngress: 
               - 
@@ -189,7 +261,7 @@ Resources:
                 HttpCode: "200"
             HealthyThresholdCount: 5
             VpcId: !Ref EC2VPC
-            Name: "wssTG"
+            Name: !Ref ElasticTargetGroupName
             HealthCheckEnabled: true
             TargetGroupAttributes: 
               - 
@@ -245,18 +317,19 @@ Resources:
         Properties:
             KeyName: "HarshMac"
             KeyType: "rsa"
+            PublicKeyMaterial: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDUYGrSFy8SJxxxIKMNXG/i4MageRQETDMSXz+LVNYNqUzNdzgv3cf6WdUsDJ3A3xafBI1fx4LnGiFVpQaKliFJANOH4kioihKAieJwACF2XvHtfzDehl3WT1ODZ8lGVWDcctUdLuYr8c0vge2cvFKmCYE+WWxyApbmb7YIiTSLIUSNToVddf+7N2d09ToBJ2FwH7A8aheJejectncItUzxSFxUr6rQeNrCDDJR3+4sQGNMvUwHqbKCrF7KnZ3ggxATuX2x2ckDw2a3F1YwfuKgPyRnNbnFMgvNQRJuISDindv7ciNuEsrKAa0rBPmEaNtLlI2F+jTXh65O7SD2IrDD harsh@Harshs-MacBook-Pro.local
             
     ECRRepository:
         Type: "AWS::ECR::Repository"
         Properties:
-            RepositoryName: "place"
+            RepositoryName: !Ref ECRRepositoryName
             LifecyclePolicy: 
                 RegistryId: !Ref AWS::AccountId
 
     ECSCluster:
         Type: "AWS::ECS::Cluster"
         Properties:
-            ClusterName: "Place"
+            ClusterName: !Ref ECSClusterName
             CapacityProviders: 
               - "FARGATE"
               - "FARGATE_SPOT"
@@ -264,7 +337,7 @@ Resources:
     ECSService:
         Type: "AWS::ECS::Service"
         Properties:
-            ServiceName: "wssService"
+            ServiceName: !Ref ECSServiceName
             Cluster: !GetAtt ECSCluster.Arn
             LoadBalancers: 
               - 
@@ -326,13 +399,13 @@ Resources:
                         awslogs-group: "/ecs/webSockerServer"
                         awslogs-region: !Ref AWS::Region
                         awslogs-stream-prefix: "ecs"
-                Name: "websocketServer"
+                Name: !Ref ECSTaskContainerName
                 PortMappings: 
                   - 
                     ContainerPort: 3000
                     HostPort: 3000
                     Protocol: "tcp"
-            Family: "webSockerServer"
+            Family: !Ref ECSTaskFamily
             TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole"
             ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole"
             NetworkMode: "awsvpc"
@@ -344,7 +417,7 @@ Resources:
     S3Bucket:
         Type: "AWS::S3::Bucket"
         Properties:
-            BucketName: "rplace-static"
+            BucketName: !Ref S3BucketName
             BucketEncryption: 
                 ServerSideEncryptionConfiguration: 
                   - 
@@ -392,7 +465,7 @@ Resources:
               - 
                 AttributeName: "y"
                 AttributeType: "N"
-            TableName: "board"
+            TableName: !Ref DynamoBoardTableName
             KeySchema: 
               - 
                 AttributeName: "x"
@@ -411,7 +484,7 @@ Resources:
               - 
                 AttributeName: "id"
                 AttributeType: "S"
-            TableName: "user"
+            TableName: !Ref DynamoUserTableName
             KeySchema: 
               - 
                 AttributeName: "id"
@@ -452,7 +525,7 @@ Resources:
         Type: "AWS::ElastiCache::ReplicationGroup"
         Properties:
             AutoMinorVersionUpgrade: true
-            ReplicationGroupId: "place"
+            ReplicationGroupId: !Ref ElastiCacheReplicationGroupID
             ReplicationGroupDescription: "r/place in memory"
             Engine: redis
             EngineVersion: 5.0.4
@@ -748,7 +821,7 @@ Resources:
     LambdaFunction3:
         Type: "AWS::Lambda::Function"
         Properties:
-            Description: ""
+            Description: "Lambda to set user timestamp in DynamoDB"
             FunctionName: !Sub "${LambdaFunction2}DynamoDB"
             Handler: "lambda_function.lambda_handler"
             Architectures: 
@@ -769,7 +842,7 @@ Resources:
     LambdaFunction4:
         Type: "AWS::Lambda::Function"
         Properties:
-            Description: ""
+            Description: "Lambda to broadcast to all clients"
             Environment: 
                 Variables: 
                     SNS_TOPIC_ARN: !Ref SNSTopic
@@ -793,7 +866,7 @@ Resources:
     LambdaFunction5:
         Type: "AWS::Lambda::Function"
         Properties:
-            Description: ""
+            Description: "Lambda to set user timestamp in DynamoDB"
             FunctionName: "setUserTimestampDynamoDB"
             Handler: "lambda_function.lambda_handler"
             Architectures: 
@@ -810,21 +883,3 @@ Resources:
                 Mode: "PassThrough"
             EphemeralStorage: 
                 Size: 512
-
-    LambdaVersion:
-        Type: "AWS::Lambda::Version"
-        Properties:
-            Description: ""
-            FunctionName: !Sub "${LambdaFunction2}DynamoDB"
-
-    LambdaVersion2:
-        Type: "AWS::Lambda::Version"
-        Properties:
-            Description: "InitRedisBoard without app config"
-            FunctionName: !Ref LambdaFunction
-
-    LambdaVersion3:
-        Type: "AWS::Lambda::Version"
-        Properties:
-            Description: ""
-            FunctionName: !Sub "${DynamoDBTable}castClients"
