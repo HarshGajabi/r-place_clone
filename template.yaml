@@ -31,11 +31,6 @@ Parameters:
     Type: String
     Description: The name of the security group for the redis cluster
     Default: "RedisElasticache"
-
-  ECRRepositoryName:
-    Type: String
-    Description: The name of the ECR repository
-    Default: "place"
   
   ECSClusterName:
     Type: String
@@ -77,6 +72,36 @@ Parameters:
     Description: The name of the SNS topic
     Default: "client-broadcast"
   
+  CloudFrontCachePolicyName:
+    Type: String
+    Description: The name of the CloudFront cache policy
+    Default: "apiCloudfrontCache"
+  
+  ElastiCacheUserID:
+    Type: String
+    Description: The id of the ElastiCache user
+    Default: "default"
+  
+  EC2KeyPairName:
+    Type: String
+    Description: The name of the EC2 key pair
+    Default: "HarshMac"
+  
+  EC2KeyPublic:
+    Type: String
+    Description: The public key of the EC2 key pair
+    Default: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDUYGrSFy8SJxxxIKMNXG/i4MageRQETDMSXz+LVNYNqUzNdzgv3cf6WdUsDJ3A3xafBI1fx4LnGiFVpQaKliFJANOH4kioihKAieJwACF2XvHtfzDehl3WT1ODZ8lGVWDcctUdLuYr8c0vge2cvFKmCYE+WWxyApbmb7YIiTSLIUSNToVddf+7N2d09ToBJ2FwH7A8aheJejectncItUzxSFxUr6rQeNrCDDJR3+4sQGNMvUwHqbKCrF7KnZ3ggxATuX2x2ckDw2a3F1YwfuKgPyRnNbnFMgvNQRJuISDindv7ciNuEsrKAa0rBPmEaNtLlI2F+jTXh65O7SD2IrDD harsh@Harshs-MacBook-Pro.local
+  
+  setBoardPixelDynamoDBLambdaFunctionName:
+    Type: String
+    Description: The name of the lambda function to set the board pixel in DynamoDB
+    Default: "setBoardPixelDynamoDB"
+
+  setUserTimestampDynamoDBLambdaFunctionName:
+    Type: String
+    Description: The name of the lambda function to set the user timestamp in DynamoDB
+    Default: "setUserTimestampDynamoDB"
+
 Resources:
     EC2VPC:
         Type: "AWS::EC2::VPC"
@@ -320,16 +345,9 @@ Resources:
     EC2KeyPair:
         Type: "AWS::EC2::KeyPair"
         Properties:
-            KeyName: "HarshMac"
+            KeyName: !Ref EC2KeyPairName
             KeyType: "rsa"
-            PublicKeyMaterial: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDUYGrSFy8SJxxxIKMNXG/i4MageRQETDMSXz+LVNYNqUzNdzgv3cf6WdUsDJ3A3xafBI1fx4LnGiFVpQaKliFJANOH4kioihKAieJwACF2XvHtfzDehl3WT1ODZ8lGVWDcctUdLuYr8c0vge2cvFKmCYE+WWxyApbmb7YIiTSLIUSNToVddf+7N2d09ToBJ2FwH7A8aheJejectncItUzxSFxUr6rQeNrCDDJR3+4sQGNMvUwHqbKCrF7KnZ3ggxATuX2x2ckDw2a3F1YwfuKgPyRnNbnFMgvNQRJuISDindv7ciNuEsrKAa0rBPmEaNtLlI2F+jTXh65O7SD2IrDD harsh@Harshs-MacBook-Pro.local
-            
-    ECRRepository:
-        Type: "AWS::ECR::Repository"
-        Properties:
-            RepositoryName: !Ref ECRRepositoryName
-            LifecyclePolicy: 
-                RegistryId: !Ref AWS::AccountId
+            PublicKeyMaterial: !Ref EC2KeyPublic
 
     ECSCluster:
         Type: "AWS::ECS::Cluster"
@@ -562,8 +580,8 @@ Resources:
     ElastiCacheUser:
         Type: "AWS::ElastiCache::User"
         Properties:
-            UserId: "default"
-            UserName: "default"
+            UserId: !Ref ElastiCacheUserID
+            UserName: !Ref ElastiCacheUserID
             Engine: "redis"
             AccessString: "on ~* +@all"
             NoPasswordRequired: true
@@ -635,40 +653,6 @@ Resources:
             Layers: 
               - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:redis:3"
               - !Sub "arn:aws:lambda:${AWS::Region}:728743619870:layer:AWS-AppConfig-Extension:81"
-            EphemeralStorage: 
-                Size: 512
-
-    LambdaFunction2:
-        Type: "AWS::Lambda::Function"
-        Properties:
-            Description: ""
-            Environment: 
-                Variables: 
-                    REDIS_HOST: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Address
-                    REDIS_PORT: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Port
-            FunctionName: "setBoardPixel"
-            Handler: "lambda_function.lambda_handler"
-            Architectures: 
-              - "x86_64"
-            Code: 
-                S3Bucket: !Sub "awslambda-${AWS::Region}-tasks"
-                S3Key: !Sub "/snapshots/${AWS::AccountId}/setBoardPixel-bb7c46a6-2c2e-4df2-b248-5534f17fd882"
-                S3ObjectVersion: "Hlz0yVxeHXAaQ.oKJbHLFIJifOzCfwGC"
-            MemorySize: 128
-            Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambdaVPC"
-            Runtime: "python3.11"
-            Timeout: 3
-            TracingConfig: 
-                Mode: "PassThrough"
-            VpcConfig: 
-                SubnetIds: 
-                  - !Ref EC2Subnet
-                  - !Ref EC2Subnet3
-                  - !Ref EC2Subnet2
-                SecurityGroupIds: 
-                  - !Ref EC2SecurityGroup3
-            Layers: 
-              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:redis:3"
             EphemeralStorage: 
                 Size: 512
 
@@ -796,7 +780,7 @@ Resources:
         Type: "AWS::CloudFront::CachePolicy"
         Properties:
             CachePolicyConfig: 
-                Name: "apiCloudfrontCache"
+                Name: !Ref CloudFrontCachePolicyName
                 Comment: "Caching policy for API calls at the CDN level"
                 DefaultTTL: 5
                 MaxTTL: 5
@@ -813,7 +797,7 @@ Resources:
     SNSTopic:
         Type: "AWS::SNS::Topic"
         Properties:
-            DisplayName: ""
+            DisplayName: !Ref SNSTopicName
             TopicName: !Ref SNSTopicName
 
     SNSTopicPolicy:
@@ -823,17 +807,17 @@ Resources:
             Topics: 
               - !Ref SNSTopic
 
-    LambdaFunction3:
+    LambdaFunction2:
         Type: "AWS::Lambda::Function"
         Properties:
             Description: "Lambda to set user timestamp in DynamoDB"
-            FunctionName: !Sub "${LambdaFunction2}DynamoDB"
+            FunctionName: !Ref setBoardPixelDynamoDBLambdaFunctionName
             Handler: "lambda_function.lambda_handler"
             Architectures: 
               - "x86_64"
             Code: 
                 S3Bucket: !Sub "awslambda-${AWS::Region}-tasks"
-                S3Key: !Sub "/snapshots/${AWS::AccountId}/${LambdaFunction2}DynamoDB-6a017d99-e4ee-4e35-97b0-455daf018f7c"
+                S3Key: !Sub "/snapshots/${AWS::AccountId}/setBoardPixelDynamoDB-6a017d99-e4ee-4e35-97b0-455daf018f7c"
                 S3ObjectVersion: "tgM25pBxcJe3jfHEQk9Nm.bNi5YR8wOd"
             MemorySize: 128
             Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambdaVPC"
@@ -844,7 +828,7 @@ Resources:
             EphemeralStorage: 
                 Size: 512
 
-    LambdaFunction4:
+    LambdaFunction3:
         Type: "AWS::Lambda::Function"
         Properties:
             Description: "Lambda to broadcast to all clients"
@@ -857,7 +841,7 @@ Resources:
               - "x86_64"
             Code: 
                 S3Bucket: !Sub "awslambda-${AWS::Region}-tasks"
-                S3Key: !Sub "/snapshots/${AWS::AccountId}/${DynamoDBTable}castClients-a145bc26-e280-4aa3-9f63-6340b904f346"
+                S3Key: !Sub "/snapshots/${AWS::AccountId}/boardcastClients-a145bc26-e280-4aa3-9f63-6340b904f346"
                 S3ObjectVersion: "J8IuR2yp5MRhhtM0DvgYW36n8hmM8eSp"
             MemorySize: 128
             Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambdaVPC"
@@ -868,11 +852,11 @@ Resources:
             EphemeralStorage: 
                 Size: 512
 
-    LambdaFunction5:
+    LambdaFunction4:
         Type: "AWS::Lambda::Function"
         Properties:
             Description: "Lambda to set user timestamp in DynamoDB"
-            FunctionName: "setUserTimestampDynamoDB"
+            FunctionName: !Ref setUserTimestampDynamoDBLambdaFunctionName
             Handler: "lambda_function.lambda_handler"
             Architectures: 
               - "x86_64"
