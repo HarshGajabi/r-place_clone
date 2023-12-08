@@ -71,6 +71,11 @@ Parameters:
     Type: String
     Description: The id of the ElastiCache replication group
     Default: "place"
+
+  SNSTopicName:
+    Type: String
+    Description: The name of the SNS topic
+    Default: "client-broadcast"
   
 Resources:
     EC2VPC:
@@ -809,7 +814,7 @@ Resources:
         Type: "AWS::SNS::Topic"
         Properties:
             DisplayName: ""
-            TopicName: "client-broadcast"
+            TopicName: !Ref SNSTopicName
 
     SNSTopicPolicy:
         Type: "AWS::SNS::TopicPolicy"
@@ -883,3 +888,25 @@ Resources:
                 Mode: "PassThrough"
             EphemeralStorage: 
                 Size: 512
+
+Outputs:
+  CloudFrontURL:
+    Description: "The URL of the CloudFront distribution"
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-CloudFrontURL"
+  LoadBalancerURL:
+    Description: "The URL of the load balancer"
+    Value: !GetAtt ElasticLoadBalancingV2LoadBalancer.DNSName
+    Export:
+      Name: !Sub "${AWS::StackName}-LoadBalancerURL"
+  ElastiCacheReplicationGroupHost:
+    Description: "The host of the ElastiCache replication group"
+    Value: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-ElastiCacheReplicationGroupHost"
+  ElastiCacheReplicationGroupPort:
+    Description: "The port of the ElastiCache replication group"
+    Value: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Port
+    Export:
+      Name: !Sub "${AWS::StackName}-ElastiCacheReplicationGroupPort"
