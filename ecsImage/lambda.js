@@ -42,6 +42,4 @@ async function setUserTimestampDynamoDB(id, timestamp) {
     return invokeLambda('setUserTimestampDynamoDB', {id, datetime: timestamp});
 }
 
-// setUserTimestampDynamoDB("12345", new Date().toISOString()).then(x => console.log(x));
-
 module.exports = {setBoardPixelDynamoDB, boardcastClients, setUserTimestampDynamoDB};

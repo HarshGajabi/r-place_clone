@@ -98,7 +98,6 @@ function convertBoardToRGBA(board) {
             rgbaArray[index + 3] = a;
         });
     });
-    // console.log(rgbaArray);
     return rgbaArray;
 }
 
@@ -110,7 +109,6 @@ function drawBoardOnCanvas(board, canvasId) {
     canvas.height = boardSize;
     const rgbaArray = convertBoardToRGBA(board);
     const imageData = new ImageData(rgbaArray, boardSize, boardSize);
-    // console.log(imageData);
     ctx.putImageData(imageData, 0, 0);
 }
 
