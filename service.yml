@@ -22,8 +22,11 @@ Parameters:
   TargetGroupName:
     Type: String
     Default: wssTargetGroup
-Resources:
+  StaticS3BucketName:
+    Type: String
+    Default: statics3
 
+Resources:
 # ECS section
   ECSFargateCluster:
     Type: 'AWS::ECS::Cluster'
@@ -93,6 +96,145 @@ Resources:
       LoadBalancerArn: !Ref LoadBalancer
       Port: '3000'
       Protocol: HTTP
+
+# Cloudfront section
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub '${StaticS3BucketName}-${AWS::StackName}'
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration: 
+          - 
+            ServerSideEncryptionByDefault: 
+              SSEAlgorithm: "AES256"
+            BucketKeyEnabled: true
+      VersioningConfiguration: 
+        Status: "Enabled"
+      OwnershipControls: 
+        Rules: 
+          - 
+            ObjectOwnership: "BucketOwnerEnforced"
+      PublicAccessBlockConfiguration: 
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  S3BucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument: 
+        Version: "2008-10-17"
+        Id: "PolicyForCloudFrontPrivateContent"
+        Statement: 
+          - 
+            Sid: "AllowCloudFrontServicePrincipal"
+            Effect: "Allow"
+            Principal: 
+              Service: "cloudfront.amazonaws.com"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+            Condition: 
+              StringEquals: 
+                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+
+  CloudFrontCachePolicy:
+    Type: "AWS::CloudFront::CachePolicy"
+    Properties:
+      CachePolicyConfig: 
+        Name: !Sub 'apiCloudfrontCache-${AWS::StackName}'
+        Comment: "Caching policy for API calls at the CDN level"
+        DefaultTTL: 5
+        MaxTTL: 5
+        MinTTL: 1
+        ParametersInCacheKeyAndForwardedToOrigin: 
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+          CookiesConfig: 
+            CookieBehavior: "none"
+          HeadersConfig: 
+            HeaderBehavior: "none"
+          QueryStringsConfig: 
+            QueryStringBehavior: "none"
+
+  CloudFrontOriginAccessControl:
+    Type: "AWS::CloudFront::OriginAccessControl"
+    Properties:
+      OriginAccessControlConfig: 
+        Name: !GetAtt S3Bucket.RegionalDomainName
+        OriginAccessControlOriginType: "s3"
+        SigningBehavior: "always"
+        SigningProtocol: "sigv4"
+
+  CloudFrontDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig: 
+        Origins: 
+        - 
+          ConnectionAttempts: 3
+          ConnectionTimeout: 10
+          DomainName: !GetAtt S3Bucket.RegionalDomainName
+          Id: !GetAtt S3Bucket.RegionalDomainName
+          OriginPath: "/static"
+          S3OriginConfig:
+            OriginAccessIdentity: ''  # Need to specify empty though legacy to avoid error 
+          OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
+        - 
+          ConnectionAttempts: 3
+          ConnectionTimeout: 10
+          CustomOriginConfig: 
+            HTTPPort: 3000
+            HTTPSPort: 443
+            OriginKeepaliveTimeout: 5
+            OriginProtocolPolicy: "http-only"
+            OriginReadTimeout: 30
+            OriginSSLProtocols: 
+            - "TLSv1.2"
+          DomainName: !GetAtt LoadBalancer.DNSName
+          Id: !GetAtt LoadBalancer.DNSName
+          OriginPath: ""
+        DefaultCacheBehavior: 
+          AllowedMethods: 
+          - "HEAD"
+          - "DELETE"
+          - "POST"
+          - "GET"
+          - "OPTIONS"
+          - "PUT"
+          - "PATCH"
+          CachedMethods: 
+          - "HEAD"
+          - "GET"
+          Compress: true
+          CachePolicyId: !Ref CloudFrontCachePolicy
+          OriginRequestPolicyId: "33f36d7e-f396-46d9-90e0-52428a34d9dc" # aws managed
+          SmoothStreaming: false
+          TargetOriginId: !GetAtt LoadBalancer.DNSName
+          ViewerProtocolPolicy: "allow-all"
+        CacheBehaviors: 
+        - 
+          AllowedMethods: 
+          - "HEAD"
+          - "GET"
+          Compress: true
+          CachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # aws managed
+          PathPattern: "/app/*"
+          SmoothStreaming: false
+          TargetOriginId: !GetAtt S3Bucket.RegionalDomainName
+          ViewerProtocolPolicy: "allow-all"
+        Comment: "rplace Cloudfront distribution"
+        PriceClass: "PriceClass_All"
+        Enabled: true
+        ViewerCertificate: 
+          CloudFrontDefaultCertificate: true
+        Restrictions: 
+          GeoRestriction: 
+            RestrictionType: "none"
+        HttpVersion: "http2and3"
+        DefaultRootObject: ""
+        IPV6Enabled: true
 
 Outputs:
   ClusterName:
