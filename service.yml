@@ -7,9 +7,16 @@ Parameters:
   ECSServiceName:
     Type: String
     Default: wssService
-  SecurityGroupIDs:
+  # Use existing security groups
+  DefaultSecurityGroupIDs:
     Type: CommaDelimitedList
     Default: sg-06a3908c1245df706
+  LoadBalancerSecurityGroupIDs:
+    Type: CommaDelimitedList
+    Default: sg-0bdafb39355b2597f
+  ECSServiceSecurityGroupIDs:
+    Type: CommaDelimitedList
+    Default: sg-0bc68d48a6c1b2242
   SubnetIDs:
     Type: CommaDelimitedList
     Default: 'subnet-0357c98dba54ba094,subnet-01071625f1acd635e,subnet-01f882b6c38bb11d2'
@@ -53,7 +60,7 @@ Resources:
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
-          SecurityGroups: !Ref SecurityGroupIDs
+          SecurityGroups: !Ref ECSServiceSecurityGroupIDs
           Subnets: !Ref SubnetIDs
       PlatformVersion: LATEST
       DeploymentConfiguration:
@@ -75,7 +82,7 @@ Resources:
     Properties:
       Type: application
       Name: !Sub '${LoadBalancerName}-${AWS::StackName}'
-      SecurityGroups: !Ref SecurityGroupIDs
+      SecurityGroups: !Ref LoadBalancerSecurityGroupIDs
       Subnets: !Ref SubnetIDs
   TargetGroup:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
