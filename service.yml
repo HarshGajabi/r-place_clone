@@ -259,3 +259,13 @@ Outputs:
   TargetGroup:
     Description: The created target group.
     Value: !Ref TargetGroup
+  StaticBucketName:
+    Description: The created static S3 bucket.
+    Value: !Ref S3Bucket
+  CloudFrontURL:
+    Description: The created CloudFront URL.
+    Value: !Join
+      - ""
+      - - "https://"
+        - !GetAtt CloudFrontDistribution.DomainName
+        - "/app/index.html"
